@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Novel Scenario Editor</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                    },
+                    colors: {
+                        ios: {
+                            blue: '#007AFF',
+                            red: '#FF3B30',
+                            green: '#34C759',
+                            yellow: '#FFCC00',
+                            gray: '#8E8E93',
+                            gray2: '#AEAEB2',
+                            gray3: '#C7C7CC',
+                            gray4: '#D1D1D6',
+                            gray5: '#E5E5EA',
+                            gray6: '#F2F2F7',
+                        }
+                    },
+                    animation: {
+                        'scale-in': 'scaleIn 0.1s ease-out forwards',
+                        'fade-in': 'fadeIn 0.2s ease-out forwards',
+                    },
+                    keyframes: {
+                        scaleIn: {
+                            '0%': { transform: 'scale(0.95)', opacity: '0' },
+                            '100%': { transform: 'scale(1)', opacity: '1' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(5px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Fixed Style Tag for Tailwind @apply -->
+    <style type="text/tailwindcss">
+        :root {
+            --bg-app: #f2f2f7;
+            --bg-panel: #ffffff;
+            --bg-sidebar: #ffffff;
+            --bg-glass: rgba(255, 255, 255, 0.75);
+            --bg-context: rgba(255, 255, 255, 0.95);
+            --text-primary: #1c1c1e;
+            --text-secondary: #8e8e93;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --accent-color: #007AFF;
+            --accent-bg: rgba(0, 122, 255, 0.1);
+            --accent-hover: #0063cc;
+            --danger-color: #FF3B30;
+            --success-color: #34C759;
+            --selection-bg: #e4eef9;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        /* Dark Mode */
+        .theme-dark {
+            --bg-app: #000000;
+            --bg-panel: #1c1c1e;
+            --bg-sidebar: #151517;
+            --bg-glass: rgba(28, 28, 30, 0.75);
+            --bg-context: rgba(30, 30, 32, 0.95);
+            --text-primary: #f5f5f7;
+            --text-secondary: #8e8e93;
+            --border-color: rgba(255, 255, 255, 0.12);
+            --accent-bg: rgba(10, 132, 255, 0.15);
+            --selection-bg: #1A2838;
+            --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Sepia (Reader) */
+        .theme-sepia {
+            --bg-app: #f0eadd;
+            --bg-panel: #fdf6e3;
+            --bg-sidebar: #fdf6e3;
+            --bg-glass: rgba(253, 246, 227, 0.85);
+            --bg-context: rgba(253, 246, 227, 0.95);
+            --text-primary: #5f4b32;
+            --text-secondary: #978570;
+            --border-color: rgba(95, 75, 50, 0.1);
+            --accent-color: #d3a067;
+            --accent-bg: rgba(211, 160, 103, 0.15);
+            --accent-hover: #b58552;
+            --selection-bg: #efe6d3;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            margin: 0;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            user-select: none;
+        }
+
+        input, textarea, .selectable-text {
+            user-select: text;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: var(--text-secondary);
+        }
+
+        .glass {
+            background-color: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        /* Improved Sidebar Styles */
+        .modern-sidebar {
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-color);
+            transition: background-color 0.3s ease, width 0.3s ease;
+        }
+
+        .glass-panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .glass-context {
+            background-color: var(--bg-context);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-float);
+        }
+
+        input, textarea, select {
+            background-color: transparent;
+            color: inherit;
+            border: none;
+            outline: none;
+            width: 100%;
+        }
+
+        /* Improved Sidebar Button */
+        .sidebar-btn {
+            @apply flex flex-col items-center justify-center w-16 h-16 rounded-2xl transition-all duration-300 mb-3 relative overflow-hidden;
+            color: var(--text-secondary);
+        }
+        .sidebar-btn:hover {
+            background-color: rgba(0,0,0,0.03);
+            color: var(--text-primary);
+        }
+        .theme-dark .sidebar-btn:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        
+        .sidebar-btn.active {
+            color: var(--accent-color);
+            background-color: var(--accent-bg);
+            box-shadow: 0 4px 12px -2px rgba(0,0,0,0.05);
+        }
+        .sidebar-btn.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 24px;
+            background-color: var(--accent-color);
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .sidebar-btn span {
+            @apply text-[11px] font-medium mt-1.5 tracking-tight transition-all duration-300;
+        }
+        .sidebar-btn.active span {
+            @apply font-semibold;
+        }
+
+        .sidebar-divider {
+            width: 40px;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 8px 0;
+            opacity: 0.6;
+        }
+
+        .context-item {
+            @apply flex items-center gap-3 px-3 py-2 text-sm rounded-lg hover:bg-[var(--accent-color)] hover:text-white cursor-pointer transition-colors;
+        }
+        .context-shortcut {
+            @apply ml-auto text-xs opacity-60;
+        }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef, useCallback, useReducer } = React;
+        const { createPortal } = ReactDOM;
+
+        // --- Icons ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const lucide = window.lucide;
+            if (!lucide) return null;
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className}></i>;
+        };
+
+        // --- Translations ---
+        const TRANSLATIONS = {
+            ja: {
+                appTitle: "Scenario Studio",
+                tabs: { editor: "エディタ", database: "データ" },
+                cols: {
+                    route: "ルート", chapter: "Chapter", line: "Line", id: "ID",
+                    character: "キャラクター", dialogue: "セリフ", duration: "秒数",
+                    expression: "表情", sprite: "立ち絵", bgm: "BGM", se: "SE",
+                    bg: "背景", pos: "位置", motion: "モーション", trans: "演出"
+                },
+                actions: {
+                    add: "行を追加", delete: "行を削除", duplicate: "行を複製",
+                    export: "保存 (JSON)", import: "読込 (JSON)", exportCSV: "書き出し (CSV)",
+                    undo: "元に戻す", redo: "やり直し",
+                    copyId: "IDをコピー", search: "検索..."
+                },
+                db: {
+                    title: "マスターデータ",
+                    addItem: "追加",
+                    placeholder: "新規項目...",
+                    empty: "データがありません",
+                    categories: {
+                        routes: "ルート", characters: "キャラクター", expressions: "表情",
+                        sprites: "立ち絵", bgms: "BGM", ses: "SE", backgrounds: "背景",
+                        positions: "位置", motions: "モーション", transitions: "演出"
+                    }
+                },
+                msg: {
+                    saved: "プロジェクトを保存しました", loaded: "読み込みました", error: "エラーが発生しました", copied: "コピーしました",
+                    undo: "元に戻しました", redo: "やり直しました", exportedCSV: "CSVを書き出しました"
+                }
+            },
+            en: {
+                appTitle: "Scenario Studio",
+                tabs: { editor: "Editor", database: "Data" },
+                cols: {
+                    route: "Route", chapter: "Chapter", line: "Line", id: "ID",
+                    character: "Character", dialogue: "Dialogue", duration: "Sec",
+                    expression: "Exp", sprite: "Sprite", bgm: "BGM", se: "SE",
+                    bg: "BG", pos: "Pos", motion: "Motion", trans: "Trans"
+                },
+                actions: {
+                    add: "Add Line", delete: "Delete Line", duplicate: "Duplicate",
+                    export: "Save (JSON)", import: "Load (JSON)", exportCSV: "Export (CSV)",
+                    undo: "Undo", redo: "Redo",
+                    copyId: "Copy ID", search: "Search..."
+                },
+                db: {
+                    title: "Master Data",
+                    addItem: "Add",
+                    placeholder: "New item...",
+                    empty: "No items",
+                    categories: {
+                        routes: "Routes", characters: "Characters", expressions: "Expressions",
+                        sprites: "Sprites", bgms: "BGM", ses: "SE", backgrounds: "Backgrounds",
+                        positions: "Positions", motions: "Motions", transitions: "Transitions"
+                    }
+                },
+                msg: {
+                    saved: "Project Saved", loaded: "Project Loaded", error: "Error occurred", copied: "Copied",
+                    undo: "Undid action", redo: "Redid action", exportedCSV: "CSV Exported"
+                }
+            }
+        };
+
+        // --- Logic Utils ---
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+        const formatFullId = (route, chapter, line) => `${route || "X"}_${chapter || "0"}_${line || "000"}`;
+        const calcDuration = (text) => Math.max(1.0, Math.ceil((text?.length || 0) * 0.2 * 10) / 10);
+
+        // --- History Hook (Undo/Redo) ---
+        const useHistory = (initialState) => {
+            const [state, setState] = useState(initialState);
+            const [past, setPast] = useState([]);
+            const [future, setFuture] = useState([]);
+
+            const set = useCallback((newState, isTransient = false) => {
+                if (!isTransient) {
+                    setPast(prev => {
+                        const newPast = [...prev, state];
+                        return newPast.length > 50 ? newPast.slice(newPast.length - 50) : newPast;
+                    });
+                    setFuture([]);
+                }
+                setState(newState);
+            }, [state]);
+
+            const undo = useCallback(() => {
+                if (past.length === 0) return false;
+                const previous = past[past.length - 1];
+                const newPast = past.slice(0, past.length - 1);
+                setFuture(prev => [state, ...prev]);
+                setPast(newPast);
+                setState(previous);
+                return true;
+            }, [state, past]);
+
+            const redo = useCallback(() => {
+                if (future.length === 0) return false;
+                const next = future[0];
+                const newFuture = future.slice(1);
+                setPast(prev => [...prev, state]);
+                setFuture(newFuture);
+                setState(next);
+                return true;
+            }, [state, future]);
+
+            return [state, set, undo, redo, past.length > 0, future.length > 0];
+        };
+
+        // --- UI Components ---
+
+        const Toast = ({ message, type, onClose }) => {
+            useEffect(() => {
+                const timer = setTimeout(onClose, 2500);
+                return () => clearTimeout(timer);
+            }, [onClose]);
+            const isError = type === 'error';
+            return (
+                <div className={`fixed bottom-8 right-8 px-5 py-3 rounded-full shadow-lg flex items-center gap-3 animate-fade-in z-[9999] backdrop-blur-md ${isError ? 'bg-red-500/90 text-white' : 'bg-[var(--text-primary)] text-[var(--bg-app)]'}`}>
+                    <Icon name={isError ? 'alert-circle' : 'check'} size={18} />
+                    <span className="text-sm font-semibold tracking-wide">{message}</span>
+                </div>
+            );
+        };
+
+        // --- Custom Context Menu ---
+        const ContextMenu = ({ x, y, visible, onClose, actions, t, onAction }) => {
+            const ref = useRef(null);
+            useEffect(() => {
+                const handleClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+                if (visible) document.addEventListener('mousedown', handleClickOutside);
+                return () => document.removeEventListener('mousedown', handleClickOutside);
+            }, [visible, onClose]);
+            if (!visible) return null;
+            const style = { top: y, left: x };
+            if (x + 200 > window.innerWidth) style.left = x - 200;
+            if (y + 300 > window.innerHeight) style.top = y - 300;
+            return createPortal(
+                <div 
+                    ref={ref}
+                    className="fixed z-[9999] w-56 glass-context rounded-xl p-1.5 animate-scale-in flex flex-col gap-1"
+                    style={style}
+                    onContextMenu={(e) => e.preventDefault()}
+                >
+                    {actions.map((action, idx) => (
+                        action === 'divider' ? <div key={idx} className="h-px bg-[var(--border-color)] my-1" /> :
+                        <div key={idx} className="context-item" onClick={() => { onAction(action.id); onClose(); }}>
+                            <Icon name={action.icon} size={16} />
+                            <span>{action.label}</span>
+                            {action.shortcut && <span className="context-shortcut">{action.shortcut}</span>}
+                        </div>
+                    ))}
+                </div>, document.body
+            );
+        };
+
+        // --- Portal Select ---
+        const PortalSelect = ({ value, options, onChange, placeholder = "-" }) => {
+            const [isOpen, setIsOpen] = useState(false);
+            const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+            const buttonRef = useRef(null);
+            const toggle = () => {
+                if (!isOpen) {
+                    const rect = buttonRef.current.getBoundingClientRect();
+                    setCoords({
+                        top: rect.bottom + window.scrollY + 4,
+                        left: rect.left + window.scrollX,
+                        width: rect.width,
+                        maxHeight: window.innerHeight - rect.bottom - 20
+                    });
+                }
+                setIsOpen(!isOpen);
+            };
+            useEffect(() => {
+                const handleScroll = () => { if (isOpen) setIsOpen(false); };
+                window.addEventListener('scroll', handleScroll, true);
+                window.addEventListener('resize', handleScroll);
+                return () => {
+                    window.removeEventListener('scroll', handleScroll, true);
+                    window.removeEventListener('resize', handleScroll);
+                };
+            }, [isOpen]);
+            return (
+                <>
+                    <div ref={buttonRef} className="w-full h-full flex items-center cursor-pointer group px-1" onClick={toggle}>
+                        <span className={`block truncate text-sm w-full ${!value ? 'text-[var(--text-secondary)] opacity-40' : ''}`}>
+                            {value || placeholder}
+                        </span>
+                    </div>
+                    {isOpen && createPortal(
+                        <>
+                            <div className="fixed inset-0 z-[9998]" onClick={() => setIsOpen(false)} />
+                            <div 
+                                className="fixed z-[9999] bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-xl shadow-float overflow-y-auto animate-scale-in"
+                                style={{ top: coords.top, left: coords.left, width: Math.max(coords.width, 140), maxHeight: Math.min(300, coords.maxHeight) }}
+                            >
+                                <div className="p-1">
+                                    {options.map((opt, idx) => (
+                                        <div key={idx} className="px-3 py-2 text-sm rounded-lg hover:bg-[var(--accent-color)] hover:text-white cursor-pointer transition-colors truncate" onClick={() => { onChange(opt); setIsOpen(false); }}>
+                                            {opt}
+                                        </div>
+                                    ))}
+                                    {options.length === 0 && <div className="px-3 py-2 text-xs opacity-50 text-center">Empty</div>}
+                                </div>
+                            </div>
+                        </>, document.body
+                    )}
+                </>
+            );
+        };
+
+        // --- Database Manager ---
+        const DatabaseManager = ({ registries, setRegistries, t }) => {
+            const [activeCategory, setActiveCategory] = useState('characters');
+            const [newItem, setNewItem] = useState('');
+            const handleAddItem = (e) => {
+                e.preventDefault();
+                if (!newItem.trim()) return;
+                const updated = [...registries[activeCategory], newItem.trim()];
+                setRegistries({ ...registries, [activeCategory]: updated });
+                setNewItem('');
+            };
+            const handleDeleteItem = (item) => {
+                setRegistries({ ...registries, [activeCategory]: registries[activeCategory].filter(i => i !== item) });
+            };
+            return (
+                <div className="flex flex-col md:flex-row h-full gap-6 p-6 max-w-7xl mx-auto w-full animate-fade-in">
+                    <div className="w-full md:w-56 flex-shrink-0 space-y-1">
+                        <h2 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3 px-3">{t.db.title}</h2>
+                        {Object.keys(registries).map(key => (
+                            <button
+                                key={key}
+                                onClick={() => setActiveCategory(key)}
+                                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-between group ${activeCategory === key ? 'bg-[var(--bg-panel)] shadow-sm text-[var(--accent-color)] ring-1 ring-[var(--border-color)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-panel)]/50'}`}
+                            >
+                                <span>{t.db.categories[key]}</span>
+                                <span className="bg-[var(--border-color)] text-[var(--text-secondary)] text-[10px] py-0.5 px-1.5 rounded-full">
+                                    {registries[key].length}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 bg-[var(--bg-panel)] rounded-2xl border border-[var(--border-color)] shadow-sm flex flex-col overflow-hidden">
+                        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+                            <h3 className="text-lg font-bold">{t.db.categories[activeCategory]}</h3>
+                        </div>
+                        <div className="p-4 flex-1 overflow-y-auto">
+                            <form onSubmit={handleAddItem} className="flex gap-2 mb-4">
+                                <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder={t.db.placeholder} className="flex-1 bg-[var(--bg-app)] border border-[var(--border-color)] rounded-lg px-3 py-2 focus:ring-1 focus:ring-[var(--accent-color)]" />
+                                <button type="submit" disabled={!newItem.trim()} className="bg-[var(--text-primary)] text-[var(--bg-app)] px-4 py-2 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-all">{t.db.addItem}</button>
+                            </form>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {registries[activeCategory].map((item, idx) => (
+                                    <div key={idx} className="group flex items-center justify-between p-2.5 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-app)] transition-colors">
+                                        <span className="text-sm truncate">{item}</span>
+                                        <button onClick={() => handleDeleteItem(item)} className="text-[var(--text-secondary)] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="x" size={14} /></button>
+                                    </div>
+                                ))}
+                                {registries[activeCategory].length === 0 && <p className="col-span-full text-center text-[var(--text-secondary)] text-sm py-8">{t.db.empty}</p>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App ---
+        const App = () => {
+            const [view, setView] = useState('editor');
+            const [theme, setTheme] = useState('light');
+            const [lang, setLang] = useState('ja');
+            const [notification, setNotification] = useState(null);
+            const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, targetId: null });
+
+            const initialScenario = [{
+                uniqueId: generateId(), route: 'A', chapter: '1', line: '001',
+                character: 'シロコ', dialogue: 'ん、先生、エディタのデザインを磨き直したよ。', duration: 3.0,
+                expression: '通常', sprite: 'default', bgm: 'Theme_01',
+                se: '', bg: 'Classroom', position: 'Center', motion: '', transition: ''
+            }];
+
+            const [scenarios, setScenarios, undo, redo, canUndo, canRedo] = useHistory(initialScenario);
+
+            const [registries, setRegistries] = useState({
+                routes: ['A', 'B', 'True'],
+                characters: ['シロコ', '先生', 'ホシノ', 'ノノミ', 'セリカ', 'アヤネ'],
+                expressions: ['通常', '笑顔', '怒り', '悲しみ', '驚き', '照れ', 'ジト目'],
+                sprites: ['default', 'uniform', 'swimsuit', 'cycling'],
+                bgms: ['Theme_01', 'Battle_Simple', 'Daily_Life', 'Silence'],
+                ses: ['Click', 'Explosion', 'Footstep', 'Phone_Ring'],
+                backgrounds: ['Classroom', 'City_Day', 'City_Night', 'Desert', 'Abydos_HQ'],
+                positions: ['Center', 'Left', 'Right', 'Left_Edge', 'Right_Edge', 'Hide'],
+                motions: ['None', 'Shake_Small', 'Shake_Big', 'Jump', 'FadeIn', 'FadeOut'],
+                transitions: ['None', 'FadeBlack_1s', 'FadeWhite_1s', 'CrossFade']
+            });
+
+            const t = TRANSLATIONS[lang];
+
+            useEffect(() => {
+                const saved = localStorage.getItem('vn_project_data_v3');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.scenarios) setScenarios(parsed.scenarios, true);
+                        if (parsed.registries) setRegistries(parsed.registries);
+                        if (parsed.theme) setTheme(parsed.theme);
+                    } catch (e) { console.error(e); }
+                }
+            }, []);
+
+            useEffect(() => {
+                localStorage.setItem('vn_project_data_v3', JSON.stringify({ scenarios, registries, theme, lang }));
+                document.body.className = '';
+                if (theme !== 'light') document.body.classList.add(`theme-${theme}`);
+            }, [scenarios, registries, theme, lang]);
+
+            const notify = (msg, type = 'success') => setNotification({ message: msg, type });
+
+            const addLine = useCallback(() => {
+                setScenarios(prev => {
+                    const last = prev[prev.length - 1];
+                    const newLine = {
+                        uniqueId: generateId(),
+                        route: last ? last.route : 'A',
+                        chapter: last ? last.chapter : '1',
+                        line: last ? String(Number(last.line) + 1).padStart(3, '0') : '001',
+                        character: '', dialogue: '', duration: 1.0,
+                        expression: '', sprite: '', bgm: '', se: '', bg: '',
+                        position: '', motion: '', transition: ''
+                    };
+                    return [...prev, newLine];
+                });
+            }, [setScenarios]);
+
+            const updateLine = useCallback((id, field, val) => {
+                setScenarios(prev => prev.map(item => {
+                    if (item.uniqueId === id) {
+                        const upd = { ...item, [field]: val };
+                        if (field === 'dialogue') upd.duration = calcDuration(val);
+                        return upd;
+                    }
+                    return item;
+                }));
+            }, [setScenarios]);
+
+            const deleteLine = useCallback((id) => {
+                setScenarios(prev => {
+                    if (prev.length <= 1) return prev;
+                    return prev.filter(s => s.uniqueId !== id);
+                });
+            }, [setScenarios]);
+
+            const duplicateLine = useCallback((id) => {
+                setScenarios(prev => {
+                    const idx = prev.findIndex(s => s.uniqueId === id);
+                    if (idx === -1) return prev;
+                    const source = prev[idx];
+                    const newLine = { ...source, uniqueId: generateId(), line: String(Number(source.line) + 1).padStart(3, '0') };
+                    const next = [...prev];
+                    next.splice(idx + 1, 0, newLine);
+                    return next;
+                });
+            }, [setScenarios]);
+
+            const handleUndo = () => { if (undo()) notify(t.msg.undo); };
+            const handleRedo = () => { if (redo()) notify(t.msg.redo); };
+
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    const isInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); handleUndo(); return; }
+                    if (((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') || ((e.ctrlKey || e.metaKey) && e.key === 'y')) { e.preventDefault(); handleRedo(); return; }
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); addLine(); return; }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [addLine, undo, redo]);
+
+            const handleContextMenu = (e, targetId = null) => {
+                e.preventDefault();
+                setContextMenu({ visible: true, x: e.clientX, y: e.clientY, targetId });
+            };
+
+            const contextActions = [
+                { id: 'add', label: t.actions.add, icon: 'plus', shortcut: 'Ctrl+Enter' },
+                { id: 'undo', label: t.actions.undo, icon: 'undo', shortcut: 'Ctrl+Z' },
+                { id: 'redo', label: t.actions.redo, icon: 'redo', shortcut: 'Ctrl+Y' },
+                'divider',
+                contextMenu.targetId ? { id: 'duplicate', label: t.actions.duplicate, icon: 'copy' } : null,
+                contextMenu.targetId ? { id: 'delete', label: t.actions.delete, icon: 'trash-2' } : null,
+                contextMenu.targetId ? 'divider' : null,
+                { id: 'export', label: t.actions.export, icon: 'download' },
+                { id: 'exportCSV', label: t.actions.exportCSV, icon: 'file-spreadsheet' }
+            ].filter(Boolean);
+
+            const handleContextAction = (actionId) => {
+                switch (actionId) {
+                    case 'add': addLine(); break;
+                    case 'undo': handleUndo(); break;
+                    case 'redo': handleRedo(); break;
+                    case 'duplicate': duplicateLine(contextMenu.targetId); break;
+                    case 'delete': deleteLine(contextMenu.targetId); break;
+                    case 'export': handleExport(); break;
+                    case 'exportCSV': handleCSVExport(); break;
+                }
+            };
+
+            const handleExport = () => {
+                const blob = new Blob([JSON.stringify({ scenarios, registries }, null, 2)], { type: "application/json" });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `scenario_${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                notify(t.msg.saved);
+            };
+
+            const handleCSVExport = () => {
+                const headers = [
+                    "Route", "Chapter", "Line", "FullID", "Character", "Dialogue",
+                    "Duration", "Expression", "Sprite", "BGM", "SE", "BG",
+                    "Position", "Motion", "Transition"
+                ];
+
+                const escape = (text) => {
+                    if (!text) return "";
+                    const stringText = String(text);
+                    if (stringText.includes(",") || stringText.includes("\"") || stringText.includes("\n")) {
+                        return `"${stringText.replace(/"/g, '""')}"`;
+                    }
+                    return stringText;
+                };
+
+                const rows = scenarios.map(s => [
+                    s.route,
+                    s.chapter,
+                    s.line,
+                    formatFullId(s.route, s.chapter, s.line),
+                    s.character,
+                    s.dialogue,
+                    s.duration,
+                    s.expression,
+                    s.sprite,
+                    s.bgm,
+                    s.se,
+                    s.bg,
+                    s.position,
+                    s.motion,
+                    s.transition
+                ].map(escape).join(","));
+
+                const csvContent = [headers.join(","), ...rows].join("\n");
+                
+                // Add BOM for Excel compatibility
+                const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `scenario_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                notify(t.msg.exportedCSV);
+            };
+
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const json = JSON.parse(ev.target.result);
+                        if (json.scenarios) setScenarios(json.scenarios);
+                        if (json.registries) setRegistries(json.registries);
+                        notify(t.msg.loaded);
+                    } catch { notify(t.msg.error, 'error'); }
+                };
+                reader.readAsText(file);
+            };
+
+            const toggleTheme = () => {
+                const modes = ['light', 'dark', 'sepia'];
+                setTheme(modes[(modes.indexOf(theme) + 1) % modes.length]);
+            };
+
+            return (
+                <div className="flex h-screen w-full bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300" onContextMenu={(e) => handleContextMenu(e)}>
+                    
+                    {/* Modern Clean Sidebar */}
+                    <aside className="w-24 flex-shrink-0 modern-sidebar z-50 flex flex-col items-center py-6 gap-2">
+                        {/* Logo Area */}
+                        <div className="w-12 h-12 mb-8 bg-gradient-to-br from-[var(--accent-color)] to-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 transform transition-transform hover:scale-105">
+                            <Icon name="feather" className="text-white" size={24} />
+                        </div>
+
+                        {/* Nav Items */}
+                        <div className="flex-1 w-full px-3 flex flex-col items-center">
+                            <button onClick={() => setView('editor')} className={`sidebar-btn ${view === 'editor' ? 'active' : ''}`} title={t.tabs.editor}>
+                                <Icon name="table-2" size={24} strokeWidth={view === 'editor' ? 2.5 : 2} />
+                                <span>Editor</span>
+                            </button>
+                            <button onClick={() => setView('database')} className={`sidebar-btn ${view === 'database' ? 'active' : ''}`} title={t.tabs.database}>
+                                <Icon name="database" size={24} strokeWidth={view === 'database' ? 2.5 : 2} />
+                                <span>Data</span>
+                            </button>
+                            
+                            <div className="sidebar-divider"></div>
+
+                            <button onClick={handleUndo} disabled={!canUndo} className="sidebar-btn disabled:opacity-30" title={t.actions.undo}>
+                                <Icon name="undo" size={22} />
+                                <span>Undo</span>
+                            </button>
+                            <button onClick={handleRedo} disabled={!canRedo} className="sidebar-btn disabled:opacity-30" title={t.actions.redo}>
+                                <Icon name="redo" size={22} />
+                                <span>Redo</span>
+                            </button>
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="w-full px-3 flex flex-col items-center">
+                            <button onClick={toggleTheme} className="sidebar-btn" title="Theme">
+                                <Icon name={theme === 'dark' ? 'moon' : theme === 'sepia' ? 'coffee' : 'sun'} size={22} />
+                                <span className="capitalize">{theme}</span>
+                            </button>
+                            <button onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')} className="sidebar-btn">
+                                <span className="text-sm font-bold tracking-tight">{lang === 'ja' ? 'JP' : 'EN'}</span>
+                                <span>Lang</span>
+                            </button>
+                        </div>
+                    </aside>
+
+                    {/* Main Content */}
+                    <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                        {/* Header */}
+                        <header className="h-16 px-6 flex items-center justify-between glass z-40 sticky top-0 shrink-0">
+                            <h1 className="text-lg font-bold tracking-tight">{view === 'editor' ? t.appTitle : t.db.title}</h1>
+                            <div className="flex items-center gap-3">
+                                {view === 'editor' && (
+                                    <>
+                                        <button onClick={handleExport} className="btn-icon rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 transition" title={t.actions.export}><Icon name="download" size={20} /></button>
+                                        <button onClick={handleCSVExport} className="btn-icon rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 transition" title={t.actions.exportCSV}><Icon name="file-spreadsheet" size={20} /></button>
+                                        <label className="btn-icon rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 transition cursor-pointer" title={t.actions.import}>
+                                            <Icon name="upload" size={20} />
+                                            <input type="file" className="hidden" accept=".json" onChange={handleImport} />
+                                        </label>
+                                        <button 
+                                            onClick={addLine}
+                                            className="ml-2 flex items-center gap-2 bg-[var(--text-primary)] text-[var(--bg-app)] px-4 py-2 rounded-xl font-semibold hover:opacity-90 transition shadow-lg shadow-black/5 active:scale-95 text-sm"
+                                        >
+                                            <Icon name="plus" size={18} />
+                                            <span>{t.actions.add}</span>
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </header>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-hidden relative bg-[var(--bg-app)]">
+                            {view === 'database' ? (
+                                <DatabaseManager registries={registries} setRegistries={setRegistries} t={t} />
+                            ) : (
+                                <div className="h-full overflow-auto pb-32">
+                                    <div className="min-w-max px-6 py-6">
+                                        <div className="glass-panel rounded-xl overflow-hidden bg-[var(--bg-panel)] shadow-sm">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead className="bg-[var(--bg-panel)] text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider sticky top-0 z-30 shadow-sm">
+                                                    <tr>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-10 text-center">#</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-24">{t.cols.route}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-16">{t.cols.chapter}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-16">{t.cols.line}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-24 text-[var(--accent-color)]">{t.cols.id}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-32">{t.cols.character}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] min-w-[300px]">{t.cols.dialogue}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-16">{t.cols.duration}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.expression}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.sprite}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.bgm}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.se}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.bg}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.pos}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.motion}</th>
+                                                        <th className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-panel)] w-28">{t.cols.trans}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-sm divide-y divide-[var(--border-color)]">
+                                                    {scenarios.map((row, index) => {
+                                                        const fullId = formatFullId(row.route, row.chapter, row.line);
+                                                        return (
+                                                            <tr 
+                                                                key={row.uniqueId} 
+                                                                className="group hover:bg-[var(--bg-app)] transition-colors"
+                                                                onContextMenu={(e) => { e.stopPropagation(); handleContextMenu(e, row.uniqueId); }}
+                                                            >
+                                                                <td className="p-2 text-center text-xs text-[var(--text-secondary)] bg-[var(--bg-panel)] group-hover:bg-[var(--bg-app)] transition-colors border-r border-[var(--border-color)]">
+                                                                    {index + 1}
+                                                                </td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.route} options={registries.routes} onChange={(v) => updateLine(row.uniqueId, 'route', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><input type="text" value={row.chapter} onChange={(e) => updateLine(row.uniqueId, 'chapter', e.target.value)} className="text-center font-mono rounded hover:bg-[var(--bg-app)] focus:bg-[var(--selection-bg)] transition-colors" /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><input type="text" value={row.line} onChange={(e) => updateLine(row.uniqueId, 'line', e.target.value)} className="text-center font-mono rounded hover:bg-[var(--bg-app)] focus:bg-[var(--selection-bg)] transition-colors" /></td>
+                                                                <td 
+                                                                    className="p-2 font-mono text-xs text-[var(--text-secondary)] cursor-pointer hover:text-[var(--accent-color)] transition-colors truncate max-w-[100px] border-r border-[var(--border-color)]"
+                                                                    onClick={() => { navigator.clipboard.writeText(fullId); notify(t.msg.copied); }}
+                                                                    title={fullId}
+                                                                >
+                                                                    {fullId}
+                                                                </td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.character} options={registries.characters} onChange={(v) => updateLine(row.uniqueId, 'character', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]">
+                                                                    <textarea 
+                                                                        value={row.dialogue}
+                                                                        onChange={(e) => updateLine(row.uniqueId, 'dialogue', e.target.value)}
+                                                                        rows={1}
+                                                                        className="selectable-text w-full resize-none overflow-hidden min-h-[32px] rounded-lg px-2 py-1.5 leading-relaxed hover:bg-[var(--bg-app)] focus:bg-[var(--selection-bg)] transition-colors focus:ring-1 focus:ring-[var(--accent-color)]/30"
+                                                                        style={{height: 'auto'}}
+                                                                        onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px' }}
+                                                                    />
+                                                                </td>
+                                                                <td className="p-2 text-center text-xs text-[var(--text-secondary)] border-r border-[var(--border-color)]">{row.duration}s</td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.expression} options={registries.expressions} onChange={(v) => updateLine(row.uniqueId, 'expression', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.sprite} options={registries.sprites} onChange={(v) => updateLine(row.uniqueId, 'sprite', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.bgm} options={registries.bgms} onChange={(v) => updateLine(row.uniqueId, 'bgm', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.se} options={registries.ses} onChange={(v) => updateLine(row.uniqueId, 'se', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.bg} options={registries.backgrounds} onChange={(v) => updateLine(row.uniqueId, 'bg', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.position} options={registries.positions} onChange={(v) => updateLine(row.uniqueId, 'position', v)} /></td>
+                                                                <td className="p-2 border-r border-[var(--border-color)]"><PortalSelect value={row.motion} options={registries.motions} onChange={(v) => updateLine(row.uniqueId, 'motion', v)} /></td>
+                                                                <td className="p-2"><PortalSelect value={row.transition} options={registries.transitions} onChange={(v) => updateLine(row.uniqueId, 'transition', v)} /></td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+
+                    {/* Global Context Menu */}
+                    <ContextMenu 
+                        x={contextMenu.x} 
+                        y={contextMenu.y} 
+                        visible={contextMenu.visible} 
+                        onClose={() => setContextMenu({ ...contextMenu, visible: false })}
+                        actions={contextActions}
+                        t={t}
+                        onAction={handleContextAction}
+                    />
+
+                    {notification && <Toast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
