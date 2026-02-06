@@ -154,12 +154,9 @@
             _uuid: crypto.randomUUID(),
             id: { route: "C", chapter: "1", scene: "1", number: String(index + 1).padStart(3, '0') }, // Default: C / 1 / 1 / 001
             type: "text", // Default: text
-            characterId: "",
-            displayName: "",
-            position: "", // Default: empty (None)
-            expression: "neutral", // Default: neutral
-            difference: "",
-            motion: "",
+            characterId: "", // Talker ID
+            displayName: "", // Talker Name
+            standings: [], // New: Array of standing characters
             text: "",
             choices: [],
             bgm: "",
@@ -170,7 +167,7 @@
             next_id: { route: "", chapter: "", scene: "", number: "" }
         });
 
-        const STORAGE_KEY = 'novel_scenario_data_v6'; // Version bump for default ID number change
+        const STORAGE_KEY = 'novel_scenario_data_v7'; // Version bump for structure change
 
         // --- Components ---
 
@@ -253,8 +250,66 @@
             );
         };
 
+        const StandingsEditor = ({ standings, onChange }) => {
+            const safeList = Array.isArray(standings) ? standings : [];
+
+            const updateItem = (idx, field, value) => {
+                const newList = [...safeList];
+                newList[idx] = { ...newList[idx], [field]: value };
+                onChange(newList);
+            };
+
+            const addItem = () => {
+                onChange([...safeList, { id: "", expression: "neutral", difference: "", position: "center", motion: "" }]);
+            };
+
+            const removeItem = (idx) => {
+                onChange(safeList.filter((_, i) => i !== idx));
+            };
+
+            return (
+                <Field label="Standings (Characters on Screen)">
+                    <div className="space-y-3">
+                        {safeList.map((item, idx) => (
+                            <div key={idx} className="bg-white dark:bg-apple-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in relative group">
+                                <button onClick={() => removeItem(idx)} className="absolute top-2 right-2 text-apple-red hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all z-10" title="Remove">
+                                    <Icon name="trash" />
+                                </button>
+                                <div className="grid grid-cols-12 gap-3 mb-2 pr-8">
+                                    <div className="col-span-4">
+                                        <label className="text-[10px] text-apple-300 font-mono mb-1 block">Char ID</label>
+                                        <Input value={item.id} onChange={v => updateItem(idx, 'id', v)} placeholder="ID" />
+                                    </div>
+                                    <div className="col-span-4">
+                                         <label className="text-[10px] text-apple-300 font-mono mb-1 block">Position</label>
+                                         <Select value={item.position} onChange={v => updateItem(idx, 'position', v)} options={POSITIONS} className="py-2.5" />
+                                    </div>
+                                    <div className="col-span-4">
+                                         <label className="text-[10px] text-apple-300 font-mono mb-1 block">Motion</label>
+                                         <Input value={item.motion} onChange={v => updateItem(idx, 'motion', v)} placeholder="Motion" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                         <label className="text-[10px] text-apple-300 font-mono mb-1 block">Expression</label>
+                                         <Input value={item.expression} onChange={v => updateItem(idx, 'expression', v)} placeholder="Expression" />
+                                    </div>
+                                    <div>
+                                         <label className="text-[10px] text-apple-300 font-mono mb-1 block">Difference</label>
+                                         <Input value={item.difference} onChange={v => updateItem(idx, 'difference', v)} placeholder="Diff" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <button onClick={addItem} className="w-full py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-apple-400 hover:text-apple-blue hover:border-apple-blue hover:bg-apple-blue/5 transition-all text-sm font-medium flex items-center justify-center gap-2">
+                            <Icon name="plus" weight="bold" /> Add Character
+                        </button>
+                    </div>
+                </Field>
+            );
+        };
+
         const ChoicesEditor = ({ choices, onChange }) => {
-            // Ensure choices is an array (migration safety)
             const safeChoices = Array.isArray(choices) ? choices : [];
 
             const updateChoice = (idx, field, value) => {
@@ -588,49 +643,20 @@
                                         <h3 className="font-bold text-lg">Dialogue</h3>
                                     </div>
                                     
-                                    <div className="grid grid-cols-12 gap-4 mb-4">
-                                        <div className="col-span-12 md:col-span-3">
-                                            <Field label="Char ID">
-                                                <Input 
-                                                    value={selectedScenario.characterId} 
-                                                    onChange={v => handleUpdate({...selectedScenario, characterId: v})} 
-                                                />
-                                            </Field>
-                                        </div>
-                                        <div className="col-span-12 md:col-span-3">
-                                            <Field label="Display Name">
-                                                <Input 
-                                                    value={selectedScenario.displayName} 
-                                                    onChange={v => handleUpdate({...selectedScenario, displayName: v})} 
-                                                />
-                                            </Field>
-                                        </div>
-                                        <div className="col-span-12 md:col-span-3">
-                                            <Field label="Position">
-                                                <Select 
-                                                    value={selectedScenario.position} 
-                                                    onChange={v => handleUpdate({...selectedScenario, position: v})}
-                                                    options={POSITIONS}
-                                                />
-                                            </Field>
-                                        </div>
-                                        <div className="col-span-12 md:col-span-3">
-                                            <Field label="Expression">
-                                                 <Input 
-                                                    value={selectedScenario.expression} 
-                                                    onChange={v => handleUpdate({...selectedScenario, expression: v})} 
-                                                    placeholder="e.g. smile"
-                                                />
-                                            </Field>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4 mb-4">
-                                         <Field label="Motion">
-                                            <Input value={selectedScenario.motion} onChange={v => handleUpdate({...selectedScenario, motion: v})} placeholder="Animation key" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <Field label="Char ID (Talker)">
+                                            <Input 
+                                                value={selectedScenario.characterId} 
+                                                onChange={v => handleUpdate({...selectedScenario, characterId: v})} 
+                                                placeholder="e.g. shiroko"
+                                            />
                                         </Field>
-                                        <Field label="Difference (Variant)">
-                                            <Input value={selectedScenario.difference} onChange={v => handleUpdate({...selectedScenario, difference: v})} placeholder="e.g. blush" />
+                                        <Field label="Display Name">
+                                            <Input 
+                                                value={selectedScenario.displayName} 
+                                                onChange={v => handleUpdate({...selectedScenario, displayName: v})} 
+                                                placeholder="e.g. シロコ"
+                                            />
                                         </Field>
                                     </div>
 
@@ -643,6 +669,12 @@
                                         />
                                     </Field>
                                 </div>
+
+                                {/* Section: Standings (New) */}
+                                <StandingsEditor 
+                                    standings={selectedScenario.standings} 
+                                    onChange={v => handleUpdate({...selectedScenario, standings: v})} 
+                                />
 
                                 {/* Section: Environment */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
