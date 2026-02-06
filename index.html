@@ -116,6 +116,7 @@
 
         // --- Constants & Options ---
         const POSITIONS = [
+            { value: '', label: 'None' },
             { value: 'center', label: 'Center' },
             { value: 'left_2', label: 'Left (2 chars)' },
             { value: 'right_2', label: 'Right (2 chars)' },
@@ -128,6 +129,7 @@
         ];
 
         const TIMES = [
+            { value: '', label: 'None' },
             { value: 'morning', label: 'Morning' },
             { value: 'noon', label: 'Noon' },
             { value: 'afternoon', label: 'Afternoon' },
@@ -135,6 +137,7 @@
         ];
 
         const LIGHTS = [
+            { value: '', label: 'None' },
             { value: 'lighton', label: 'Light On' },
             { value: 'lightoff', label: 'Light Off' },
             { value: 'lightleft', label: 'Light Left' },
@@ -149,25 +152,25 @@
         // --- Default Data Structure ---
         const createEmptyScenario = (index = 0) => ({
             _uuid: crypto.randomUUID(),
-            id: { route: "C", chapter: "1", scene: "1", number: String(index + 1) },
-            type: "text",
+            id: { route: "C", chapter: "1", scene: "1", number: String(index + 1).padStart(3, '0') }, // Default: C / 1 / 1 / 001
+            type: "text", // Default: text
             characterId: "",
             displayName: "",
-            position: "center",
-            expression: "neutral",
+            position: "", // Default: empty (None)
+            expression: "neutral", // Default: neutral
             difference: "",
             motion: "",
             text: "",
-            choices: {},
+            choices: [],
             bgm: "",
             se: "",
-            bg: { location: "", time: "morning", detail: "", light: "lighton" },
-            seconds: 5,
+            bg: { location: "", time: "", detail: "", light: "" }, // Default: all empty
+            seconds: 5, // Default: 5
             transition: "",
             next_id: { route: "", chapter: "", scene: "", number: "" }
         });
 
-        const STORAGE_KEY = 'novel_scenario_data_v2'; // Version bump to reset defaults
+        const STORAGE_KEY = 'novel_scenario_data_v6'; // Version bump for default ID number change
 
         // --- Components ---
 
@@ -251,55 +254,50 @@
         };
 
         const ChoicesEditor = ({ choices, onChange }) => {
-            const choiceList = Object.entries(choices || {}).map(([key, val]) => ({ key, ...val }));
+            // Ensure choices is an array (migration safety)
+            const safeChoices = Array.isArray(choices) ? choices : [];
 
             const updateChoice = (idx, field, value) => {
-                const key = choiceList[idx].key;
-                const updatedChoice = { ...choices[key], [field]: value };
-                const newChoices = { ...choices, [key]: updatedChoice };
+                const newChoices = [...safeChoices];
+                newChoices[idx] = { ...newChoices[idx], [field]: value };
                 onChange(newChoices);
             };
 
             const updateNextId = (idx, field, value) => {
-                const key = choiceList[idx].key;
-                const currentChoice = choices[key];
-                const newNextId = { ...currentChoice.nextId, [field]: value };
-                const newChoices = { ...choices, [key]: { ...currentChoice, nextId: newNextId } };
+                const newChoices = [...safeChoices];
+                const currentNextId = newChoices[idx].nextId || { route: "", chapter: "", scene: "", number: "" };
+                newChoices[idx] = { 
+                    ...newChoices[idx], 
+                    nextId: { ...currentNextId, [field]: value } 
+                };
                 onChange(newChoices);
             };
 
             const addChoice = () => {
-                const newKey = String(choiceList.length);
-                onChange({
-                    ...choices,
-                    [newKey]: { 
+                onChange([
+                    ...safeChoices,
+                    { 
                         text: "New Choice", 
                         nextId: { route: "", chapter: "", scene: "", number: "" } 
                     }
-                });
+                ]);
             };
 
-            const removeChoice = (keyToRemove) => {
-                const newChoices = { ...choices };
-                delete newChoices[keyToRemove];
-                // Re-indexing keys to 0, 1... for consistency
-                const reindexed = {};
-                Object.values(newChoices).forEach((val, i) => {
-                    reindexed[String(i)] = val;
-                });
-                onChange(reindexed);
+            const removeChoice = (indexToRemove) => {
+                const newChoices = safeChoices.filter((_, i) => i !== indexToRemove);
+                onChange(newChoices);
             };
 
             return (
                 <Field label="Choices (Selections)">
                     <div className="space-y-3">
-                        {choiceList.map((choice, idx) => (
-                            <div key={choice.key} className="bg-white dark:bg-apple-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in relative group">
-                                <button onClick={() => removeChoice(choice.key)} className="absolute top-2 right-2 text-apple-red hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all" title="Remove">
+                        {safeChoices.map((choice, idx) => (
+                            <div key={idx} className="bg-white dark:bg-apple-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 animate-fade-in relative group">
+                                <button onClick={() => removeChoice(idx)} className="absolute top-2 right-2 text-apple-red hover:bg-red-50 dark:hover:bg-red-900/30 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all" title="Remove">
                                     <Icon name="trash" />
                                 </button>
                                 <div className="mb-2 pr-8">
-                                    <label className="text-xs text-apple-300 font-mono mb-1 block">Option #{choice.key}</label>
+                                    <label className="text-xs text-apple-300 font-mono mb-1 block">Option #{idx + 1}</label>
                                     <Input value={choice.text} onChange={v => updateChoice(idx, 'text', v)} placeholder="Choice Text" />
                                 </div>
                                 <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -384,7 +382,7 @@
                 if (!selectedScenario) return;
                 const clone = JSON.parse(JSON.stringify(selectedScenario));
                 clone._uuid = crypto.randomUUID();
-                clone.id.number = String(Number(clone.id.number) + 1);
+                clone.id.number = String(Number(clone.id.number) + 1).padStart(3, '0');
                 
                 const idx = scenarios.findIndex(s => s._uuid === selectedUuid);
                 const newScenarios = [...scenarios];
@@ -506,13 +504,12 @@
                                         : 'hover:bg-white/60 dark:hover:bg-white/5 border-transparent'}`}
                                 >
                                     <div className="flex justify-between items-start mb-1">
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md ${selectedUuid === s._uuid ? 'bg-apple-blue text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                                            #{s.id.number}
+                                        <span className={`text-[10px] font-bold font-mono tracking-tight px-1.5 py-0.5 rounded-md ${selectedUuid === s._uuid ? 'bg-apple-blue text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                                            {`${s.id.route}_${s.id.chapter}-${s.id.scene}_${s.id.number}`}
                                         </span>
-                                        <span className="text-[10px] text-gray-400 font-mono">{s.id.route}</span>
                                     </div>
                                     <div className={`text-sm font-medium line-clamp-2 mb-1 ${selectedUuid === s._uuid ? 'text-apple-blue dark:text-blue-400' : ''}`}>
-                                        {s.text || "(No text)"}
+                                        {s.text ? s.text : <span className="text-gray-400 italic text-xs">テキストなし</span>}
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-gray-400">
                                         <span>{s.displayName}</span>
